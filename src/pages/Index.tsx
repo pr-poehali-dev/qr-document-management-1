@@ -23,8 +23,9 @@ type Item = {
   pickupAmount: number;
   depositDate: string;
   pickupDate: string;
-  status: 'stored' | 'picked_up';
+  status: 'stored' | 'picked_up' | 'archived';
   createdBy: string;
+  archivedDate?: string;
 };
 
 const DEPARTMENT_LIMITS = {
@@ -71,9 +72,7 @@ const Index = () => {
 
   // Сохранение данных в localStorage при изменении
   useEffect(() => {
-    if (items.length > 0) {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
-    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
   }, [items]);
 
   const handleLogin = (role: UserRole) => {
@@ -173,6 +172,21 @@ const Index = () => {
       )
     );
     toast.success('Предмет выдан клиенту');
+  };
+
+  const handleArchiveItem = (itemId: string) => {
+    setItems(
+      items.map((item) =>
+        item.id === itemId
+          ? {
+              ...item,
+              status: 'archived' as const,
+              archivedDate: new Date().toISOString(),
+            }
+          : item
+      )
+    );
+    toast.success('Предмет перемещён в постоянный архив');
   };
 
   const printForm = (filled: boolean) => {
@@ -282,7 +296,8 @@ const Index = () => {
 
   const clientItems = items.filter((item) => item.phone === username);
   const storedItems = items.filter((item) => item.status === 'stored');
-  const archivedItems = items.filter((item) => item.status === 'picked_up');
+  const pickedUpItems = items.filter((item) => item.status === 'picked_up');
+  const archivedItems = items.filter((item) => item.status === 'archived');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -676,44 +691,102 @@ const Index = () => {
         )}
 
         {currentRole !== 'client' && currentSection === 'archive' && (
-          <Card>
-            <CardHeader>
-              <CardTitle>Архив выданных предметов</CardTitle>
-              <CardDescription>
-                Всего выдано: {archivedItems.length}
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {archivedItems.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  <Icon name="Archive" size={48} className="mx-auto mb-4 opacity-50" />
-                  <p>Архив пуст</p>
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {archivedItems.map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-                    >
-                      <div className="flex-1">
-                        <h4 className="font-semibold">{item.itemName}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {item.firstName} {item.lastName} • {item.phone}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          QR: {item.qrCode} • {item.department}
-                        </p>
+          <div className="space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle>Выданные предметы</CardTitle>
+                <CardDescription>
+                  Временный архив выданных предметов: {pickedUpItems.length}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {pickedUpItems.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Icon name="Inbox" size={48} className="mx-auto mb-4 opacity-50" />
+                    <p>Нет выданных предметов</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {pickedUpItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                      >
+                        <div className="flex-1">
+                          <h4 className="font-semibold">{item.itemName}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {item.firstName} {item.lastName} • {item.phone}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            QR: {item.qrCode} • {item.department}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-700">
+                            Выдан
+                          </span>
+                          {(currentRole === 'admin' || currentRole === 'creator' || currentRole === 'nikitovsky') && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => handleArchiveItem(item.id)}
+                            >
+                              <Icon name="Archive" className="mr-1" size={14} />
+                              В архив
+                            </Button>
+                          )}
+                        </div>
                       </div>
-                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-700">
-                        Выдан
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle>Постоянный архив</CardTitle>
+                <CardDescription>
+                  Все документы, которые хранятся вечно: {archivedItems.length}
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {archivedItems.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <Icon name="Archive" size={48} className="mx-auto mb-4 opacity-50" />
+                    <p>Постоянный архив пуст</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {archivedItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between p-4 bg-blue-50 rounded-lg border border-blue-200"
+                      >
+                        <div className="flex-1">
+                          <h4 className="font-semibold">{item.itemName}</h4>
+                          <p className="text-sm text-muted-foreground">
+                            {item.firstName} {item.lastName} • {item.phone}
+                          </p>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            QR: {item.qrCode} • {item.department}
+                          </p>
+                          {item.archivedDate && (
+                            <p className="text-xs text-blue-600 mt-1">
+                              Архивирован: {new Date(item.archivedDate).toLocaleDateString('ru-RU')}
+                            </p>
+                          )}
+                        </div>
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                          В архиве навсегда
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
         )}
 
         {currentRole !== 'client' && currentSection === 'forms' && (
