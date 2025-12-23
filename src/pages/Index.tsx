@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,6 +8,7 @@ import Icon from '@/components/ui/icon';
 import { toast } from 'sonner';
 
 type UserRole = 'client' | 'cashier' | 'admin' | 'creator' | 'nikitovsky' | null;
+type Section = 'dashboard' | 'storage' | 'archive' | 'forms';
 
 type Item = {
   id: string;
@@ -33,8 +34,11 @@ const DEPARTMENT_LIMITS = {
   other: Infinity,
 };
 
+const STORAGE_KEY = 'storage_items';
+
 const Index = () => {
   const [currentRole, setCurrentRole] = useState<UserRole>(null);
+  const [currentSection, setCurrentSection] = useState<Section>('dashboard');
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [items, setItems] = useState<Item[]>([]);
@@ -52,6 +56,25 @@ const Index = () => {
     depositDate: '',
     pickupDate: '',
   });
+
+  // Загрузка данных из localStorage при монтировании
+  useEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) {
+      try {
+        setItems(JSON.parse(stored));
+      } catch (e) {
+        console.error('Ошибка загрузки данных:', e);
+      }
+    }
+  }, []);
+
+  // Сохранение данных в localStorage при изменении
+  useEffect(() => {
+    if (items.length > 0) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+    }
+  }, [items]);
 
   const handleLogin = (role: UserRole) => {
     if (role === 'client') {
@@ -96,6 +119,7 @@ const Index = () => {
     setCurrentRole(null);
     setUsername('');
     setPassword('');
+    setCurrentSection('dashboard');
     toast.info('Вы вышли из системы');
   };
 
@@ -257,6 +281,8 @@ const Index = () => {
   }
 
   const clientItems = items.filter((item) => item.phone === username);
+  const storedItems = items.filter((item) => item.status === 'stored');
+  const archivedItems = items.filter((item) => item.status === 'picked_up');
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -281,6 +307,49 @@ const Index = () => {
           </Button>
         </div>
       </header>
+
+      {currentRole !== 'client' && (
+        <nav className="bg-white border-b border-gray-200">
+          <div className="container mx-auto px-4">
+            <div className="flex gap-1">
+              <Button
+                variant={currentSection === 'dashboard' ? 'default' : 'ghost'}
+                onClick={() => setCurrentSection('dashboard')}
+                className="rounded-none"
+              >
+                <Icon name="LayoutDashboard" className="mr-2" size={16} />
+                Главная
+              </Button>
+              <Button
+                variant={currentSection === 'storage' ? 'default' : 'ghost'}
+                onClick={() => setCurrentSection('storage')}
+                className="rounded-none"
+              >
+                <Icon name="Package" className="mr-2" size={16} />
+                На хранении
+              </Button>
+              <Button
+                variant={currentSection === 'archive' ? 'default' : 'ghost'}
+                onClick={() => setCurrentSection('archive')}
+                className="rounded-none"
+              >
+                <Icon name="Archive" className="mr-2" size={16} />
+                Архив
+              </Button>
+              {(currentRole === 'admin' || currentRole === 'creator' || currentRole === 'nikitovsky') && (
+                <Button
+                  variant={currentSection === 'forms' ? 'default' : 'ghost'}
+                  onClick={() => setCurrentSection('forms')}
+                  className="rounded-none"
+                >
+                  <Icon name="Printer" className="mr-2" size={16} />
+                  Печать анкет
+                </Button>
+              )}
+            </div>
+          </div>
+        </nav>
+      )}
 
       <main className="container mx-auto px-4 py-8">
         {currentRole === 'client' && (
@@ -339,7 +408,7 @@ const Index = () => {
           </div>
         )}
 
-        {(currentRole === 'cashier' || currentRole === 'admin' || currentRole === 'creator' || currentRole === 'nikitovsky') && (
+        {currentRole !== 'client' && currentSection === 'dashboard' && (
           <div className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <Card>
@@ -553,84 +622,119 @@ const Index = () => {
                 </CardContent>
               </Card>
             )}
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Все предметы</CardTitle>
-                <CardDescription>
-                  Всего на хранении: {items.filter(i => i.status === 'stored').length}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {items.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <Icon name="Inbox" size={48} className="mx-auto mb-4 opacity-50" />
-                    <p>Нет предметов в системе</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {items.map((item) => (
-                      <div
-                        key={item.id}
-                        className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
-                      >
-                        <div className="flex-1">
-                          <h4 className="font-semibold">{item.itemName}</h4>
-                          <p className="text-sm text-muted-foreground">
-                            {item.firstName} {item.lastName} • {item.phone}
-                          </p>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            QR: {item.qrCode} • {item.department}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`px-3 py-1 rounded-full text-xs font-medium ${
-                              item.status === 'stored'
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-gray-200 text-gray-700'
-                            }`}
-                          >
-                            {item.status === 'stored' ? 'На хранении' : 'Выдан'}
-                          </span>
-                          {item.status === 'stored' && (
-                            <Button
-                              size="sm"
-                              onClick={() => handlePickupItem(item.id)}
-                            >
-                              <Icon name="CheckCircle" className="mr-1" size={14} />
-                              Выдать
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-
-            {(currentRole === 'admin' || currentRole === 'creator' || currentRole === 'nikitovsky') && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>Печать анкет</CardTitle>
-                  <CardDescription>Печать форм для документооборота</CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex gap-2">
-                    <Button variant="outline" onClick={() => printForm(false)}>
-                      <Icon name="Printer" className="mr-2" size={16} />
-                      Пустая анкета
-                    </Button>
-                    <Button variant="outline" onClick={() => printForm(true)}>
-                      <Icon name="Printer" className="mr-2" size={16} />
-                      Заполненная анкета
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
+        )}
+
+        {currentRole !== 'client' && currentSection === 'storage' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Предметы на хранении</CardTitle>
+              <CardDescription>
+                Всего на хранении: {storedItems.length}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {storedItems.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Icon name="Inbox" size={48} className="mx-auto mb-4 opacity-50" />
+                  <p>Нет предметов на хранении</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {storedItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                    >
+                      <div className="flex-1">
+                        <h4 className="font-semibold">{item.itemName}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {item.firstName} {item.lastName} • {item.phone}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          QR: {item.qrCode} • {item.department}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className="px-3 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700">
+                          На хранении
+                        </span>
+                        <Button
+                          size="sm"
+                          onClick={() => handlePickupItem(item.id)}
+                        >
+                          <Icon name="CheckCircle" className="mr-1" size={14} />
+                          Выдать
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {currentRole !== 'client' && currentSection === 'archive' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Архив выданных предметов</CardTitle>
+              <CardDescription>
+                Всего выдано: {archivedItems.length}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {archivedItems.length === 0 ? (
+                <div className="text-center py-12 text-muted-foreground">
+                  <Icon name="Archive" size={48} className="mx-auto mb-4 opacity-50" />
+                  <p>Архив пуст</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {archivedItems.map((item) => (
+                    <div
+                      key={item.id}
+                      className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
+                    >
+                      <div className="flex-1">
+                        <h4 className="font-semibold">{item.itemName}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {item.firstName} {item.lastName} • {item.phone}
+                        </p>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          QR: {item.qrCode} • {item.department}
+                        </p>
+                      </div>
+                      <span className="px-3 py-1 rounded-full text-xs font-medium bg-gray-200 text-gray-700">
+                        Выдан
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
+        {currentRole !== 'client' && currentSection === 'forms' && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Печать анкет</CardTitle>
+              <CardDescription>Печать форм для документооборота</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2">
+                <Button variant="outline" onClick={() => printForm(false)}>
+                  <Icon name="Printer" className="mr-2" size={16} />
+                  Пустая анкета
+                </Button>
+                <Button variant="outline" onClick={() => printForm(true)}>
+                  <Icon name="Printer" className="mr-2" size={16} />
+                  Заполненная анкета
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         )}
       </main>
     </div>
