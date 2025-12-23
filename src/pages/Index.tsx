@@ -83,7 +83,7 @@ const Index = () => {
         toast.error('Неверный пароль создателя');
       }
     } else if (role === 'nikitovsky') {
-      if (password === '202505') {
+      if (password === '20252025') {
         setCurrentRole('nikitovsky');
         toast.success('Вход выполнен как Никитовский');
       } else {
